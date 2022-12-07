@@ -114,6 +114,9 @@ import {
   SIGN_TYPED_DATA_V4,
 } from '@/utils/signingMethods';
 import logger from '@/utils/logger';
+import { handleSessionRequestResponse } from '@/utils/walletConnect';
+import { logger as loggr } from '@/logger';
+import { isAddress } from '@ethersproject/address';
 
 const springConfig = {
   damping: 500,
@@ -228,6 +231,7 @@ export default function TransactionConfirmationScreen() {
       payload: { method, params },
       peerId,
       requestId,
+      walletConnectV2RequestValues,
     },
   } = routeParams;
   const isMessageRequest = isMessageDisplayType(method);
@@ -236,7 +240,9 @@ export default function TransactionConfirmationScreen() {
   const walletConnector = walletConnectors[peerId];
 
   const accountInfo = useMemo(() => {
-    const address = walletConnector?._accounts?.[0];
+    // TODO where do we get address for sign/send transaction?
+    const address =
+      walletConnectV2RequestValues?.address || walletConnector?._accounts?.[0];
     const selectedWallet = findWalletWithAccount(wallets, address);
     const profileInfo = getAccountProfileInfo(
       selectedWallet,
@@ -247,7 +253,12 @@ export default function TransactionConfirmationScreen() {
       ...profileInfo,
       address,
     };
-  }, [walletConnector?._accounts, walletNames, wallets]);
+  }, [
+    walletConnector?._accounts,
+    walletNames,
+    wallets,
+    walletConnectV2RequestValues,
+  ]);
 
   const getNextNonce = useCurrentNonce(accountInfo.address, currentNetwork);
 
@@ -260,9 +271,13 @@ export default function TransactionConfirmationScreen() {
 
   useEffect(() => {
     setCurrentNetwork(
-      ethereumUtils.getNetworkFromChainId(Number(walletConnector?._chainId))
+      ethereumUtils.getNetworkFromChainId(
+        Number(
+          walletConnectV2RequestValues?.chainId || walletConnector?._chainId
+        )
+      )
     );
-  }, [walletConnector?._chainId]);
+  }, [walletConnector?._chainId, walletConnectV2RequestValues]);
 
   useEffect(() => {
     const initProvider = async () => {
@@ -428,6 +443,7 @@ export default function TransactionConfirmationScreen() {
 
   const onCancel = useCallback(
     async error => {
+      loggr.debug(`TransactionConfirmationScreen: onCancel`);
       try {
         closeScreen(true);
         if (callback) {
@@ -435,11 +451,17 @@ export default function TransactionConfirmationScreen() {
         }
         setTimeout(async () => {
           if (requestId) {
-            await dispatch(
-              walletConnectSendStatus(peerId, requestId, {
+            if (walletConnectV2RequestValues) {
+              await handleSessionRequestResponse(walletConnectV2RequestValues, {
                 error: error || 'User cancelled the request',
-              })
-            );
+              });
+            } else {
+              await dispatch(
+                walletConnectSendStatus(peerId, requestId, {
+                  error: error || 'User cancelled the request',
+                })
+              );
+            }
             dispatch(removeRequest(requestId));
           }
           const rejectionType =
@@ -460,15 +482,17 @@ export default function TransactionConfirmationScreen() {
       removeRequest,
       requestId,
       walletConnectSendStatus,
+      walletConnectV2RequestValues,
     ]
   );
 
   const onPressCancel = useCallback(() => onCancel(), [onCancel]);
 
+  // TODO test this
   useEffect(() => {
     if (
       isFocused &&
-      (!peerId || !walletConnector) &&
+      (!peerId || (!walletConnector && !walletConnectV2RequestValues)) &&
       (ios || IS_TESTING !== 'true')
     ) {
       Alert.alert(
@@ -481,7 +505,14 @@ export default function TransactionConfirmationScreen() {
         ]
       );
     }
-  }, [isFocused, goBack, onCancel, peerId, walletConnector]);
+  }, [
+    isFocused,
+    goBack,
+    onCancel,
+    peerId,
+    walletConnector,
+    walletConnectV2RequestValues,
+  ]);
 
   const calculateGasLimit = useCallback(async () => {
     calculatingGasLimit.current = true;
@@ -602,6 +633,7 @@ export default function TransactionConfirmationScreen() {
   ]);
 
   const handleConfirmTransaction = useCallback(async () => {
+    loggr.debug(`TransactionConfirmationScreen: handleConfirmTransaction`);
     const sendInsteadOfSign = method === SEND_TRANSACTION;
     const txPayload = params?.[0];
     let { gas, gasLimit: gasLimitFromPayload } = txPayload;
@@ -694,6 +726,7 @@ export default function TransactionConfirmationScreen() {
       }
       let txSavedInCurrentWallet = false;
       let txDetails = null;
+      // TODO
       if (sendInsteadOfSign) {
         txDetails = {
           amount: displayDetails?.request?.value ?? 0,
@@ -719,10 +752,16 @@ export default function TransactionConfirmationScreen() {
         dappUrl,
       });
       if (isFocused && requestId) {
+        if (walletConnectV2RequestValues) {
+          await handleSessionRequestResponse(walletConnectV2RequestValues, {
+            result,
+          });
+        } else {
+          await dispatch(
+            walletConnectSendStatus(peerId, requestId, { result: result.hash })
+          );
+        }
         dispatch(removeRequest(requestId));
-        await dispatch(
-          walletConnectSendStatus(peerId, requestId, { result: result.hash })
-        );
       }
       closeScreen(false);
       // When the tx is sent from a different wallet,
@@ -780,6 +819,7 @@ export default function TransactionConfirmationScreen() {
     dataAddNewTransaction,
     removeRequest,
     walletConnectSendStatus,
+    walletConnectV2RequestValues,
     peerId,
     switchToWalletWithAddress,
     onCancel,
@@ -790,13 +830,9 @@ export default function TransactionConfirmationScreen() {
   ]);
 
   const handleSignMessage = useCallback(async () => {
-    let message = null;
+    loggr.debug(`TransactionConfirmationScreen: handleSignMessage`);
+    const message = params.find(p => !isAddress(p));
     let response = null;
-    if (isSignFirstParamType(method)) {
-      message = params?.[0];
-    } else if (isSignSecondParamType(method)) {
-      message = params?.[1];
-    }
     const existingWallet = await loadWallet(
       accountInfo.address,
       true,
@@ -823,8 +859,14 @@ export default function TransactionConfirmationScreen() {
         dappUrl,
       });
       if (requestId) {
+        if (walletConnectV2RequestValues) {
+          await handleSessionRequestResponse(walletConnectV2RequestValues, {
+            result,
+          });
+        } else {
+          await dispatch(walletConnectSendStatus(peerId, requestId, response));
+        }
         dispatch(removeRequest(requestId));
-        await dispatch(walletConnectSendStatus(peerId, requestId, response));
       }
       if (callback) {
         callback({ sig: result });
@@ -846,6 +888,7 @@ export default function TransactionConfirmationScreen() {
     dispatch,
     removeRequest,
     walletConnectSendStatus,
+    walletConnectV2RequestValues,
     peerId,
     onCancel,
   ]);
