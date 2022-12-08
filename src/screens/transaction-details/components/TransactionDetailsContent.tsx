@@ -5,12 +5,16 @@ import { shortenTxHashString } from '@/screens/transaction-details/helpers/short
 import { DoubleLineTransactionDetailsRow } from '@/screens/transaction-details/components/DoubleLineTransactionDetailsRow';
 import { TransactionDetailsSymbol } from '@/screens/transaction-details/components/TransactionDetailsSymbol';
 import { getFormattedEthFee } from '@/screens/transaction-details/helpers/getFormattedEthFee';
+import { CoinIcon } from '@/components/coin-icon';
 
 type Props = {
   accountAddress: string;
   txHash?: string;
   fromCurrentAddress?: boolean;
   weiFee?: number;
+  value?: string;
+  coinSymbol?: string;
+  coinAddress?: string;
 };
 
 const Divider = () => (
@@ -24,6 +28,9 @@ export const TransactionDetailsContent: React.FC<Props> = ({
   txHash,
   fromCurrentAddress,
   weiFee,
+  value,
+  coinSymbol,
+  coinAddress,
 }) => {
   const formattedHash = txHash ? shortenTxHashString(txHash) : '';
   const formattedEthFee = getFormattedEthFee(weiFee ?? 0);
@@ -35,6 +42,14 @@ export const TransactionDetailsContent: React.FC<Props> = ({
       paddingHorizontal="20px"
       paddingBottom="20px"
     >
+      {value && (
+        <DoubleLineTransactionDetailsRow
+          // @ts-expect-error JS component
+          leftComponent={<CoinIcon address={coinAddress} symbol={coinSymbol} />}
+          title={'Value'}
+          value={value}
+        />
+      )}
       {fromCurrentAddress && weiFee && (
         <DoubleLineTransactionDetailsRow
           leftComponent={<TransactionDetailsSymbol icon="􀵟" withBackground />}
