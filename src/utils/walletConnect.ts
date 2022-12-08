@@ -145,6 +145,8 @@ export async function pair({ uri }: { uri: string }) {
 export async function initListeners() {
   const client = await signClient;
 
+  logger.debug(`WC v2: signClient initialized, initListeners`);
+
   client.on('session_proposal', onSessionProposal);
   client.on('session_request', onSessionRequest);
 }
@@ -182,7 +184,7 @@ export function onSessionProposal(
     meta: {
       chainId,
       dappName,
-      dappScheme: peerMeta.url || 'Unknown URL', // TODO
+      dappScheme: peerMeta.url || 'Unknown URL', // TODO def not right
       dappUrl: peerMeta.url || 'Unknown URL',
       imageUrl: maybeSignUri(
         dappLogoOverride(peerMeta?.url) || peerMeta?.icons?.[0]
@@ -298,32 +300,38 @@ export async function onSessionRequest(
 
   logger.debug(`WC v2: session_request`, { event });
 
-  const { topic } = event;
+  const { id, topic } = event;
   const { method, params } = event.params.request;
-  const isChainMethod =
-    method === 'wallet_addEthereumChain' ||
-    method === `wallet_switchEthereumChain`;
 
-  if (isChainMethod) {
-    // TODO handle switching chains
-  } else if (isSigningMethod(method)) {
+  if (isSigningMethod(method)) {
+    // transactions aren't a `[address, message]` tuple
     const isTransactionMethod = isTransactionDisplayType(method);
     let { address, message } = parseRPCParams({ method, params });
     const allWallets = store.getState().wallets.wallets;
 
     if (!isTransactionMethod) {
       if (!address || !message) {
-        logger.debug(`WC v2: session_request exited, no address or messsage`, {
-          address,
-          message,
+        logger.error(
+          new RainbowError(
+            `WC v2: session_request exited, no address or messsage`
+          ),
+          {
+            address,
+            message,
+          }
+        );
+
+        await client.respond({
+          topic,
+          response: formatJsonRpcError(id, `Invalid RPC params`),
         });
-        // TODO reject
+
         return;
       }
 
+      // for TS only, should never happen
       if (!allWallets) {
-        logger.debug(`WC v2: session_request exited, allWallets was falsy`);
-        // TODO reject
+        logger.error(new RainbowError(`WC v2: allWallets is null`));
         return;
       }
 
@@ -333,7 +341,12 @@ export async function onSessionRequest(
         logger.debug(
           `WC v2: session_request exited, selectedWallet was falsy or read only`
         );
-        // TODO respond with rejection
+
+        await client.respond({
+          topic,
+          response: formatJsonRpcError(id, `Wallet is read-only`),
+        });
+
         return;
       }
     } else {
@@ -400,9 +413,17 @@ export async function onSessionRequest(
     }
   } else {
     logger.info(`utils/walletConnectV2: received unsupported session_request`);
+
+    await client.respond({
+      topic,
+      response: formatJsonRpcError(id, `Unsupported RPC method`),
+    });
   }
 }
 
+/**
+ * Handles the result created on our confirmation screen and sends it along to the dapp via WC
+ */
 export async function handleSessionRequestResponse(
   {
     sessionRequestEvent,
@@ -432,7 +453,7 @@ export async function handleSessionRequestResponse(
       response: formatJsonRpcError(id, error),
     };
     logger.debug(`WC v2: handleSessionRequestResponse reject`, { payload });
-    client.respond(payload);
+    await client.respond(payload);
   }
 
   store.dispatch(removeRequest(sessionRequestEvent.id));
