@@ -11,7 +11,6 @@ import { useNavigation } from '../navigation/Navigation';
 import useWalletConnectConnections from './useWalletConnectConnections';
 import { fetchReverseRecordWithRetry } from '@/utils/profileUtils';
 import { analytics } from '@/analytics';
-import { handleQRScanner } from '@/handlers/fedora';
 import {
   checkIsValidAddressOrDomain,
   isENSAddressFormat,
@@ -22,7 +21,7 @@ import Routes from '@/navigation/routesNames';
 import { addressUtils, ethereumUtils, haptics } from '@/utils';
 import logger from '@/utils/logger';
 import { checkPushNotificationPermissions } from '@/notifications/permissions';
-import { pair as pairWalletConnect } from '@/utils/walletConnect';
+import { pair as pairWalletConnect } from '@/walletConnect';
 
 export default function useScanner(enabled: boolean, onSuccess: () => unknown) {
   const { navigate, goBack } = useNavigation();
@@ -184,12 +183,6 @@ export default function useScanner(enabled: boolean, onSuccess: () => unknown) {
       // Rainbow profile QR code
       if (data.startsWith(RAINBOW_PROFILES_BASE_URL)) {
         return handleScanRainbowProfile(data);
-      }
-
-      const isHandled = handleQRScanner(data);
-
-      if (isHandled) {
-        return;
       }
 
       return handleScanInvalid(data);

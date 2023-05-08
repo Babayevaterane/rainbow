@@ -275,6 +275,7 @@ export default function WalletList({
                 onPress={onPressAddAnotherWallet}
                 testID="add-another-wallet-button"
               />
+
               {hardwareWalletsEnabled && (
                 <WalletOption
                   editMode={editMode}

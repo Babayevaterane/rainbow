@@ -32,19 +32,25 @@ import useExperimentalFlag, {
   NOTIFICATIONS,
 } from '@/config/experimentalHooks';
 import { Box } from '@/design-system';
-import { isCustomBuild, setOriginalDeploymentKey } from '@/handlers/fedora';
 import networkInfo from '@/helpers/networkInfo';
 import WalletTypes from '@/helpers/walletTypes';
 import { useAccountSettings, useSendFeedback, useWallets } from '@/hooks';
 import { Themes, useTheme } from '@/theme';
 import { showActionSheetWithOptions } from '@/utils';
 import { AppleReviewAddress, REVIEW_DONE_KEY } from '@/utils/reviewAlert';
+import {
+  buildRainbowLearnUrl,
+  LearnUTMCampaign,
+} from '@/utils/buildRainbowUrl';
 
 const { RainbowRequestReview, RNReview } = NativeModules;
 
 const SettingsExternalURLs = {
   rainbowHomepage: 'https://rainbow.me',
-  rainbowLearn: 'https://learn.rainbow.me',
+  rainbowLearn: buildRainbowLearnUrl({
+    url: 'https://learn.rainbow.me',
+    query: { campaign: LearnUTMCampaign.Settings },
+  }),
   review:
     'itms-apps://itunes.apple.com/us/app/appName/id1457119021?mt=8&action=write-review',
   twitterDeepLink: 'twitter://user?screen_name=rainbowdotme',
@@ -62,18 +68,26 @@ const checkAllWallets = (wallets: any) => {
   let canBeBackedUp = false;
   let allBackedUp = true;
   Object.keys(wallets).forEach(key => {
-    if (!wallets[key].backedUp && wallets[key].type !== WalletTypes.readOnly) {
+    if (
+      !wallets[key].backedUp &&
+      wallets[key].type !== WalletTypes.readOnly &&
+      wallets[key].type !== WalletTypes.bluetooth
+    ) {
       allBackedUp = false;
     }
 
     if (
       !wallets[key].backedUp &&
       wallets[key].type !== WalletTypes.readOnly &&
+      wallets[key].type !== WalletTypes.bluetooth &&
       !wallets[key].imported
     ) {
       areBackedUp = false;
     }
-    if (wallets[key].type !== WalletTypes.readOnly) {
+    if (
+      wallets[key].type !== WalletTypes.readOnly &&
+      wallets[key].type !== WalletTypes.readOnly
+    ) {
       canBeBackedUp = true;
     }
   });
@@ -428,16 +442,6 @@ const SettingsSection = ({
             size={52}
             testID="review-section"
             titleComponent={<MenuItem.Title text={lang.t('settings.review')} />}
-          />
-        )}
-        {isCustomBuild.value && (
-          <MenuItem
-            leftComponent={<MenuItem.TextIcon icon="🤯" isEmoji />}
-            onPress={setOriginalDeploymentKey}
-            size={52}
-            titleComponent={
-              <MenuItem.Title text={lang.t('settings.restore')} />
-            }
           />
         )}
         <MenuItem

@@ -19,14 +19,12 @@ import { ThunkDispatch } from 'redux-thunk';
 import { gretch } from 'gretchen';
 import { ActivityItem } from '@ratio.me/ratio-react-native-library';
 import { BooleanMap } from '../hooks/useCoinListEditOptions';
-import { addCashUpdatePurchases } from './addCash';
 import {
   cancelDebouncedUpdateGenericAssets,
   debouncedUpdateGenericAssets,
 } from './helpers/debouncedUpdateGenericAssets';
 import { decrementNonce, incrementNonce } from './nonceManager';
 import { AppGetState, AppState } from './store';
-import { uniqueTokensRefreshState } from './uniqueTokens';
 import { uniswapUpdateLiquidityTokens } from './uniswapLiquidity';
 import {
   AssetTypes,
@@ -81,6 +79,9 @@ import { SwapType } from '@rainbow-me/swaps';
 import { FiatProviderName } from '@/entities/f2c';
 import { logger as loggr, RainbowError } from '@/logger';
 import { analyticsV2 } from '@/analytics';
+import { queryClient } from '@/react-query';
+import { nftsQueryKey } from '@/resources/nfts';
+import { QueryClient } from '@tanstack/react-query';
 
 const storage = new MMKV();
 
@@ -698,7 +699,6 @@ export const transactionsReceived = (
   }
 
   const { accountAddress, nativeCurrency } = getState().settings;
-  const { purchaseTransactions } = getState().addCash;
   const { pendingTransactions, transactions } = getState().data;
   const { selected } = getState().wallets;
 
@@ -713,7 +713,7 @@ export const transactionsReceived = (
     nativeCurrency,
     transactions,
     pendingTransactions,
-    purchaseTransactions,
+    undefined,
     currentNetwork,
     appended
   );
@@ -733,7 +733,9 @@ export const transactionsReceived = (
 
   if (appended && potentialNftTransaction) {
     setTimeout(() => {
-      dispatch(uniqueTokensRefreshState());
+      queryClient.invalidateQueries({
+        queryKey: nftsQueryKey({ address: accountAddress }),
+      });
     }, 60000);
   }
 
@@ -753,7 +755,6 @@ export const transactionsReceived = (
     payload: parsedTransactions,
     type: DATA_LOAD_TRANSACTIONS_SUCCESS,
   });
-  dispatch(updatePurchases(parsedTransactions));
   saveLocalTransactions(parsedTransactions, accountAddress, network);
   saveLocalPendingTransactions(
     updatedPendingTransactions,
@@ -766,7 +767,8 @@ export const transactionsReceived = (
       selected &&
       !selected.backedUp &&
       !selected.imported &&
-      selected.type !== WalletTypes.readOnly
+      selected.type !== WalletTypes.readOnly &&
+      selected.type !== WalletTypes.bluetooth
     ) {
       setTimeout(() => {
         triggerOnSwipeLayout(() =>
@@ -792,6 +794,12 @@ export const maybeFetchF2CHashForPendingTransactions = async (
     {},
     loggr.DebugContext.f2c
   );
+
+  /**
+   * A CUSTOM query client used for this query only. We don't need to store tx
+   * data on this device.
+   */
+  const queryClient = new QueryClient();
 
   return Promise.all(
     pendingTransactions.map(async tx => {
@@ -824,45 +832,65 @@ export const maybeFetchF2CHashForPendingTransactions = async (
             `maybeFetchF2CHashForPendingTransactions: fetching order`
           );
 
-          const { data, error } = await gretch<ActivityItem>(
-            `https://f2c.rainbow.me/v1/providers/ratio/users/${userId}/activity/${orderId}`
-          ).json();
+          try {
+            const data = await queryClient.fetchQuery({
+              queryKey: ['f2c', 'ratio', 'pending_tx_check'],
+              staleTime: 10_000, // only fetch AT MOST once every 10 seconds
+              async queryFn() {
+                const { data, error } = await gretch<ActivityItem>(
+                  `https://f2c.rainbow.me/v1/providers/ratio/users/${userId}/activity/${orderId}`
+                ).json();
 
-          loggr.debug(
-            `maybeFetchF2CHashForPendingTransactions: fetched order`,
-            {
-              hasData: Boolean(data),
-              hasError: Boolean(error),
-              hasHash: Boolean(data?.crypto?.transactionHash),
+                if (!data || error) {
+                  if (error) {
+                    throw error;
+                  } else {
+                    throw new Error(
+                      'Ratio API returned no data for this transaction'
+                    );
+                  }
+                }
+
+                return data;
+              },
+            });
+
+            loggr.debug(
+              `maybeFetchF2CHashForPendingTransactions: fetched order`,
+              {
+                hasData: Boolean(data),
+                hasHash: Boolean(data?.crypto?.transactionHash),
+              }
+            );
+
+            if (data.crypto.transactionHash) {
+              tx.hash = data.crypto.transactionHash;
+
+              analyticsV2.track(analyticsV2.event.f2cTransactionReceived, {
+                provider: FiatProviderName.Ratio,
+                sessionId: tx.fiatProvider.analyticsSessionId,
+              });
+
+              loggr.debug(
+                `maybeFetchF2CHashForPendingTransactions: fetched order and updated hash on transaction`
+              );
+            } else {
+              loggr.info(
+                `maybeFetchF2CHashForPendingTransactions: fetcher returned no transaction data`
+              );
             }
-          );
-
-          if (!data || error) {
+          } catch (e: any) {
             loggr.error(
               new RainbowError(
                 `maybeFetchF2CHashForPendingTransactions: failed to fetch transaction data`
               ),
               {
-                error,
+                message: e.message,
                 provider: tx.fiatProvider.name,
               }
             );
-          } else if (data.crypto.transactionHash) {
-            tx.hash = data.crypto.transactionHash;
-
-            analyticsV2.track(analyticsV2.event.f2cTransactionReceived, {
-              provider: FiatProviderName.Ratio,
-              sessionId: tx.fiatProvider.analyticsSessionId,
-            });
-
-            loggr.debug(
-              `maybeFetchF2CHashForPendingTransactions: fetched order and updated hash on transaction`
-            );
-          } else {
-            loggr.info(
-              `maybeFetchF2CHashForPendingTransactions: fetcher returned no transaction data`
-            );
           }
+
           break;
         }
 
@@ -1342,7 +1370,6 @@ export const dataWatchPendingTransactions = (
       type: DATA_LOAD_TRANSACTIONS_SUCCESS,
     });
     saveLocalTransactions(updatedTransactions, accountAddress, network);
-    dispatch(updatePurchases(updatedTransactions));
     if (!pendingTransactions?.length) {
       return true;
     }
@@ -1394,24 +1421,6 @@ export const dataUpdateTransaction = (
       )
     );
   }
-};
-
-/**
- * Updates purchases using the `addCash` reducer to reflect new transaction data.
- * Called when new transaction information is loaded.
- *
- * @param updatedTransactions The array of updated transactions.
- */
-const updatePurchases = (updatedTransactions: RainbowTransaction[]) => (
-  dispatch: ThunkDispatch<AppState, unknown, never>
-) => {
-  const confirmedPurchases = updatedTransactions.filter(txn => {
-    return (
-      txn.type === TransactionTypes.purchase &&
-      txn.status !== TransactionStatus.purchasing
-    );
-  });
-  dispatch(addCashUpdatePurchases(confirmedPurchases));
 };
 
 /**

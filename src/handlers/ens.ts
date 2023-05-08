@@ -15,7 +15,11 @@ import {
   getNameFromLabelhash,
   saveENSData,
 } from './localstorage/ens';
-import { estimateGasWithPadding, getProviderForNetwork } from './web3';
+import {
+  estimateGasWithPadding,
+  getProviderForNetwork,
+  TokenStandard,
+} from './web3';
 import { ENSRegistrationRecords, Records, UniqueAsset } from '@/entities';
 import { Network } from '@/helpers';
 import {
@@ -28,18 +32,17 @@ import {
 } from '@/helpers/ens';
 import { add } from '@/helpers/utilities';
 import { ImgixImage } from '@/components/images';
-import { getOpenSeaCollectionUrl } from '@/parsers';
-import {
-  ENS_NFT_CONTRACT_ADDRESS,
-  ensIntroMarqueeNames,
-  ethUnits,
-} from '@/references';
+import { ENS_NFT_CONTRACT_ADDRESS, ethUnits } from '@/references';
 import { labelhash, logger, profileUtils } from '@/utils';
 import { AvatarResolver } from '@/ens-avatar/src';
 import { ensClient } from '@/graphql';
 import { prefetchFirstTransactionTimestamp } from '@/resources/transactions/firstTransactionTimestampQuery';
 import { prefetchENSAddress } from '@/resources/ens/ensAddressQuery';
 import { handleAndSignImages } from '@/utils/handleAndSignImages';
+import { ENS_MARQUEE_QUERY_KEY } from '@/resources/metadata/ensMarqueeQuery';
+import { queryClient } from '@/react-query';
+import { EnsMarqueeAccount } from '@/graphql/__generated__/metadata';
+import { getEnsMarqueeFallback } from '@/components/ens-registration/IntroMarquee/IntroMarquee';
 
 const DUMMY_RECORDS = {
   description: 'description',
@@ -60,14 +63,13 @@ const buildEnsToken = ({
   imageUrl: string;
 }) => {
   const { imageUrl, lowResUrl } = handleAndSignImages(imageUrl_);
-  const slug = 'ens';
   return {
     animation_url: null,
     asset_contract: {
       address: contractAddress,
       name: 'ENS',
       nft_version: '3.0',
-      schema_name: 'ERC721',
+      schema_name: TokenStandard.ERC721,
       symbol: 'ENS',
       total_supply: null,
     },
@@ -84,7 +86,7 @@ const buildEnsToken = ({
         'https://lh3.googleusercontent.com/0cOqWoYA7xL9CkUjGlxsjreSYBdrUBE0c6EO1COG4XE8UeP-Z30ckqUNiL872zHQHQU5MUNMNhfDpyXIP17hRSC5HQ=s60',
       name: 'ENS: Ethereum Name Service',
       short_description: null,
-      slug,
+      slug: 'ens',
       twitter_username: 'ensdomains',
     },
     currentPrice: null,
@@ -105,7 +107,7 @@ const buildEnsToken = ({
     lastSale: undefined,
     lastSalePaymentToken: null,
     lowResUrl,
-    marketplaceCollectionUrl: getOpenSeaCollectionUrl(slug),
+    marketplaceCollectionUrl: `https://opensea.io/collection/ens?search[sortAscending]=true&search[sortBy]=PRICE&search[toggles][0]=BUY_NOW`,
     marketplaceId: 'opensea',
     marketplaceName: 'OpenSea',
     name,
@@ -117,20 +119,6 @@ const buildEnsToken = ({
     uniqueId: name,
     urlSuffixForAsset: `${contractAddress}/${tokenId}`,
   } as UniqueAsset;
-};
-
-export const isUnknownOpenSeaENS = (asset?: UniqueAsset) => {
-  const isENS =
-    asset?.asset_contract?.address?.toLowerCase() ===
-    ENS_NFT_CONTRACT_ADDRESS.toLowerCase();
-  return (
-    isENS &&
-    (asset?.description?.includes(
-      'This is an unknown ENS name with the hash'
-    ) ||
-      !asset?.uniqueId?.includes('.eth') ||
-      !asset?.image_url)
-  );
 };
 
 export const fetchMetadata = async ({
@@ -505,12 +493,22 @@ export const fetchAccountPrimary = async (accountAddress: string) => {
 };
 
 export function prefetchENSIntroData() {
-  for (const name of ensIntroMarqueeNames) {
-    prefetchENSAddress({ name }, { staleTime: Infinity });
-    prefetchENSAvatar(name, { cacheFirst: true });
-    prefetchENSCover(name, { cacheFirst: true });
-    prefetchENSRecords(name, { cacheFirst: true });
-    prefetchFirstTransactionTimestamp({ addressOrName: name });
+  const ensMarqueeQueryData = queryClient.getQueryData<{
+    ensMarquee: EnsMarqueeAccount[];
+  }>([ENS_MARQUEE_QUERY_KEY]);
+
+  if (ensMarqueeQueryData?.ensMarquee) {
+    const ensMarqueeAccounts = ensMarqueeQueryData.ensMarquee.map(
+      (account: EnsMarqueeAccount) => account.name
+    );
+
+    for (const name of ensMarqueeAccounts) {
+      prefetchENSAddress({ name }, { staleTime: Infinity });
+      prefetchENSAvatar(name, { cacheFirst: true });
+      prefetchENSCover(name, { cacheFirst: true });
+      prefetchENSRecords(name, { cacheFirst: true });
+      prefetchFirstTransactionTimestamp({ addressOrName: name });
+    }
   }
 }
 

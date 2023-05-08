@@ -70,13 +70,9 @@ import Routes from '@/navigation/routesNames';
 import styled from '@/styled-thing';
 import { lightModeThemeColors, position } from '@/styles';
 import { useTheme } from '@/theme';
-import {
-  buildRainbowUrl,
-  getUniqueTokenType,
-  magicMemo,
-  safeAreaInsetValues,
-} from '@/utils';
+import { getUniqueTokenType, magicMemo, safeAreaInsetValues } from '@/utils';
 import { usePersistentDominantColorFromImage } from '@/hooks/usePersistentDominantColorFromImage';
+import { buildRainbowUrl } from '@/utils/buildRainbowUrl';
 
 const BackgroundBlur = styled(BlurView).attrs({
   blurAmount: 100,
@@ -264,18 +260,14 @@ const UniqueTokenExpandedState = ({
       external_url: familyLink,
       slug,
     },
-    currentPrice,
     description,
     familyImage,
     familyName,
     isSendable,
-    lastPrice,
-    lastSalePaymentToken,
     marketplaceName,
     traits,
     uniqueId,
     fullUniqueId,
-    urlSuffixForAsset,
   } = asset;
 
   const uniqueTokenType = getUniqueTokenType(asset);
@@ -601,15 +593,7 @@ const UniqueTokenExpandedState = ({
                           bottom={android ? '15px (Deprecated)' : '6px'}
                           top={android ? '10px' : '4px'}
                         >
-                          {isNFT && (
-                            <NFTBriefTokenInfoRow
-                              currentPrice={currentPrice}
-                              lastPrice={lastPrice}
-                              lastSalePaymentToken={lastSalePaymentToken}
-                              network={asset.network}
-                              urlSuffixForAsset={urlSuffixForAsset}
-                            />
-                          )}
+                          {isNFT && <NFTBriefTokenInfoRow asset={asset} />}
                           {isENS && (
                             <ENSBriefTokenInfoRow
                               color={imageColor}

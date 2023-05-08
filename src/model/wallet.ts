@@ -73,6 +73,8 @@ import {
   NotificationRelationship,
 } from '@/notifications/settings';
 import { DebugContext } from '@/logger/debugContext';
+import { IS_ANDROID } from '@/env';
+import { setHardwareTXError } from '@/navigation/HardwareWalletTxNavigator';
 
 const encryptor = new AesEncryptor();
 
@@ -253,15 +255,15 @@ export const walletInit = async (
 
   // Importing a seedphrase
   if (!isEmpty(seedPhrase)) {
-    const wallet = await createWallet(
-      seedPhrase,
+    const wallet = await createWallet({
+      seed: seedPhrase,
       color,
       name,
       overwrite,
       checkedWallet,
       image,
-      silent
-    );
+      silent,
+    });
     walletAddress = wallet?.address;
     return { isNew, walletAddress };
   }
@@ -269,7 +271,7 @@ export const walletInit = async (
   walletAddress = await loadAddress();
 
   if (!walletAddress) {
-    const wallet = await createWallet();
+    const wallet = await createWallet({});
     walletAddress = wallet?.address;
     isNew = true;
   }
@@ -327,10 +329,15 @@ export const sendTransaction = async ({
   result?: Transaction;
   error?: any;
 }> => {
+  let isHardwareWallet = false;
   try {
     logger.info('wallet: sending transaction', { transaction });
     const wallet =
       existingWallet || (await loadWallet(undefined, true, provider));
+    // have to check inverse or we trigger unwanted BT permissions requests
+    if (!(wallet instanceof Wallet)) {
+      isHardwareWallet = true;
+    }
     if (!wallet) return null;
     try {
       const result = await wallet.sendTransaction(transaction);
@@ -338,11 +345,20 @@ export const sendTransaction = async ({
       return { result };
     } catch (error) {
       logger.error(new RainbowError('Failed to send transaction'), { error });
-      Alert.alert(lang.t('wallet.transaction.alert.failed_transaction'));
+      if (isHardwareWallet) {
+        setHardwareTXError(true);
+      } else {
+        Alert.alert(lang.t('wallet.transaction.alert.failed_transaction'));
+      }
+
       return { error };
     }
   } catch (error) {
-    Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    if (isHardwareWallet) {
+      setHardwareTXError(true);
+    } else {
+      Alert.alert(lang.t('wallet.transaction.alert.failed_transaction'));
+    }
     logger.error(new RainbowError('Failed to send transaction due to auth'), {
       error,
     });
@@ -358,21 +374,34 @@ export const signTransaction = async ({
   result?: string;
   error?: any;
 }> => {
+  let isHardwareWallet = false;
   try {
     logger.info('wallet: signing transaction');
     const wallet =
       existingWallet || (await loadWallet(undefined, true, provider));
+    // have to check inverse or we trigger unwanted BT permissions requests
+    if (!(wallet instanceof Wallet)) {
+      isHardwareWallet = true;
+    }
     if (!wallet) return null;
     try {
       const result = await wallet.signTransaction(transaction);
       return { result };
     } catch (error) {
-      Alert.alert(lang.t('wallet.transaction.alert.failed_transaction'));
+      if (isHardwareWallet) {
+        setHardwareTXError(true);
+      } else {
+        Alert.alert(lang.t('wallet.transaction.alert.failed_transaction'));
+      }
       logger.error(new RainbowError('Failed to sign transaction'), { error });
       return { error };
     }
   } catch (error) {
-    Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    if (isHardwareWallet) {
+      setHardwareTXError(true);
+    } else {
+      Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    }
     logger.error(new RainbowError('Failed to sign transaction due to auth'), {
       error,
     });
@@ -388,21 +417,34 @@ export const signMessage = async (
   result?: string;
   error?: any;
 }> => {
+  let isHardwareWallet = false;
   try {
     logger.info('wallet: signing message', { message });
     const wallet =
       existingWallet || (await loadWallet(undefined, true, provider));
+    // have to check inverse or we trigger unwanted BT permissions requests
+    if (!(wallet instanceof Wallet)) {
+      isHardwareWallet = true;
+    }
     try {
       if (!wallet) return null;
       const result = await wallet.signMessage(arrayify(message));
       return { result };
     } catch (error) {
-      Alert.alert(lang.t('wallet.transaction.alert.failed_sign_message'));
+      if (isHardwareWallet) {
+        setHardwareTXError(true);
+      } else {
+        Alert.alert(lang.t('wallet.transaction.alert.failed_sign_message'));
+      }
       logger.error(new RainbowError('Failed to sign message'), { error });
       return { error };
     }
   } catch (error) {
-    Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    if (isHardwareWallet) {
+      setHardwareTXError(true);
+    } else {
+      Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    }
     logger.error(new RainbowError('Failed to sign message due to auth'), {
       error,
     });
@@ -418,10 +460,15 @@ export const signPersonalMessage = async (
   result?: string;
   error?: any;
 }> => {
+  let isHardwareWallet = false;
   try {
     logger.info('wallet: signing personal message', { message });
     const wallet =
       existingWallet || (await loadWallet(undefined, true, provider));
+    // have to check inverse or we trigger unwanted BT permissions requests
+    if (!(wallet instanceof Wallet)) {
+      isHardwareWallet = true;
+    }
     try {
       if (!wallet) return null;
       const result = await wallet.signMessage(
@@ -431,14 +478,22 @@ export const signPersonalMessage = async (
       );
       return { result };
     } catch (error) {
-      Alert.alert(lang.t('wallet.transaction.alert.failed_sign_message'));
+      if (isHardwareWallet) {
+        setHardwareTXError(true);
+      } else {
+        Alert.alert(lang.t('wallet.transaction.alert.failed_sign_message'));
+      }
       logger.error(new RainbowError('Failed to sign personal message'), {
         error,
       });
       return { error };
     }
   } catch (error) {
-    Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    if (isHardwareWallet) {
+      setHardwareTXError(true);
+    } else {
+      Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    }
     logger.error(
       new RainbowError('Failed to sign personal message due to auth'),
       { error }
@@ -455,11 +510,16 @@ export const signTypedDataMessage = async (
   result?: string;
   error?: any;
 }> => {
+  let isHardwareWallet = false;
   try {
     logger.info('wallet: signing typed data message', { message });
     const wallet =
       existingWallet || (await loadWallet(undefined, true, provider));
     if (!wallet) return null;
+    // have to check inverse or we trigger unwanted BT permissions requests
+    if (!(wallet instanceof Wallet)) {
+      isHardwareWallet = true;
+    }
     try {
       let parsedData = message;
       try {
@@ -482,6 +542,7 @@ export const signTypedDataMessage = async (
       }
 
       // Hardware wallets
+      // have to check inverse or we trigger unwanted BT permissions requests
       if (!(wallet instanceof Wallet)) {
         const result = await (wallet as LedgerSigner).signTypedDataMessage(
           parsedData,
@@ -499,14 +560,22 @@ export const signTypedDataMessage = async (
         };
       }
     } catch (error) {
-      Alert.alert(lang.t('wallet.transaction.alert.failed_sign_message'));
+      if (isHardwareWallet) {
+        setHardwareTXError(true);
+      } else {
+        Alert.alert(lang.t('wallet.transaction.alert.failed_sign_message'));
+      }
       logger.error(new RainbowError('Failed to sign typed data message'), {
         error,
       });
       return { error };
     }
   } catch (error) {
-    Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    if (isHardwareWallet) {
+      setHardwareTXError(true);
+    } else {
+      Alert.alert(lang.t('wallet.transaction.alert.authentication'));
+    }
     logger.error(
       new RainbowError('Failed to sign typed data message due to auth'),
       { error }
@@ -550,7 +619,7 @@ export const loadPrivateKey = async (
       privateKey = privateKeyData?.privateKey ?? null;
 
       let userPIN = null;
-      if (android) {
+      if (IS_ANDROID) {
         const hasBiometricsEnabled = await getSupportedBiometryType();
         // Fallback to custom PIN
         if (!hasBiometricsEnabled) {
@@ -605,16 +674,27 @@ export const identifyWalletType = (
   return EthereumWalletType.seed;
 };
 
-export const createWallet = async (
-  seed: null | EthereumSeed = null,
-  color: null | number = null,
-  name: null | string = null,
-  overwrite: boolean = false,
-  checkedWallet: null | EthereumWalletFromSeed = null,
-  image: null | string = null,
-  silent: boolean = false,
-  clearCallbackOnStartCreation = false
-): Promise<null | EthereumWallet> => {
+type CreateWalletParams = {
+  seed?: null | EthereumSeed;
+  color?: null | number;
+  name?: null | string;
+  overwrite?: boolean;
+  checkedWallet?: null | EthereumWalletFromSeed;
+  image?: null | string;
+  silent?: boolean;
+  clearCallbackOnStartCreation?: boolean;
+};
+
+export const createWallet = async ({
+  seed = null,
+  color = null,
+  name = null,
+  overwrite = false,
+  checkedWallet = null,
+  image = null,
+  silent = false,
+  clearCallbackOnStartCreation = false,
+}: CreateWalletParams): Promise<null | EthereumWallet> => {
   if (clearCallbackOnStartCreation) {
     callbackAfterSeeds?.();
     callbackAfterSeeds = null;
@@ -625,7 +705,7 @@ export const createWallet = async (
     logger.info('Creating new wallet');
   }
   const walletSeed = seed || generateMnemonic();
-  let addresses: RainbowAccount[] = [];
+  const addresses: RainbowAccount[] = [];
   try {
     const { dispatch } = store;
 
@@ -717,26 +797,28 @@ export const createWallet = async (
     logger.debug('[createWallet] - wallet ID', { id }, DebugContext.wallet);
 
     // Android users without biometrics need to secure their keys with a PIN
-    let userPIN = null;
-    if (android && !isReadOnlyType && !isHardwareWallet) {
+    let userPIN: string | undefined;
+    if (IS_ANDROID && !isReadOnlyType && !isHardwareWallet) {
       const hasBiometricsEnabled = await getSupportedBiometryType();
       // Fallback to custom PIN
       if (!hasBiometricsEnabled) {
         try {
           userPIN = await getExistingPIN();
           if (!userPIN) {
-            // We gotta dismiss the modal before showing the PIN screen
+            // We have to dismiss the modal before showing the PIN screen
             dispatch(setIsWalletLoading(null));
             userPIN = await authenticateWithPINAndCreateIfNeeded();
-            dispatch(
-              setIsWalletLoading(
-                seed
-                  ? silent
+            if (seed) {
+              dispatch(
+                setIsWalletLoading(
+                  silent
                     ? WalletLoadingStates.IMPORTING_WALLET_SILENTLY
                     : WalletLoadingStates.IMPORTING_WALLET
-                  : WalletLoadingStates.CREATING_WALLET
-              )
-            );
+                )
+              );
+            } else {
+              dispatch(setIsWalletLoading(WalletLoadingStates.CREATING_WALLET));
+            }
           }
         } catch (e) {
           return null;
@@ -790,7 +872,7 @@ export const createWallet = async (
     const colorIndexForWallet =
       color !== null ? color : addressHashedColorIndex(walletAddress) || 0;
 
-    let label = name || '';
+    const label = name || '';
 
     addresses.push({
       address: walletAddress,
@@ -1324,7 +1406,7 @@ export const generateAccount = async (
     }
 
     let userPIN = null;
-    if (android) {
+    if (IS_ANDROID) {
       const hasBiometricsEnabled = await getSupportedBiometryType();
       // Fallback to custom PIN
       if (!hasBiometricsEnabled) {
@@ -1641,7 +1723,7 @@ export const loadSeedPhraseAndMigrateIfNeeded = async (
       const seedData = await getSeedPhrase(id);
       seedPhrase = seedData?.seedphrase ?? null;
       let userPIN = null;
-      if (android) {
+      if (IS_ANDROID) {
         const hasBiometricsEnabled = await getSupportedBiometryType();
         if (!seedData && !seedPhrase && !hasBiometricsEnabled) {
           logger.debug(
@@ -1657,7 +1739,7 @@ export const loadSeedPhraseAndMigrateIfNeeded = async (
           try {
             userPIN = await authenticateWithPIN();
             if (userPIN) {
-              // Dencrypt with the PIN
+              // Decrypt with the PIN
               seedPhrase = await encryptor.decrypt(userPIN, seedPhrase);
             } else {
               return null;

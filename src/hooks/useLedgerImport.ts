@@ -22,9 +22,13 @@ export function useLedgerImport({
   successCallback?: (deviceId: string) => void;
   errorCallback?: (errorType: LEDGER_ERROR_CODES) => void;
 }) {
-  const observer = useRef<Subscription | null>(null);
-  const listener = useRef<Subscription | null>(null);
+  const observer = useRef<Subscription | undefined>(undefined);
+  const listener = useRef<Subscription | undefined>(undefined);
 
+  const handleCleanUp = () => {
+    observer?.current?.unsubscribe();
+    listener?.current?.unsubscribe();
+  };
   /**
    * Handles local error handling for useLedgerStatusCheck
    */
@@ -45,6 +49,7 @@ export function useLedgerImport({
     (deviceId: string) => {
       logger.debug('[LedgerImport] - Pairing Success', {}, DebugContext.ledger);
       successCallback?.(deviceId);
+      handleCleanUp();
     },
     [successCallback]
   );
@@ -98,14 +103,17 @@ export function useLedgerImport({
           const newListener = TransportBLE.listen({
             complete: () => {},
             error: error => {
-              logger.debug('error pairing ', { error }, DebugContext.ledger);
+              logger.error(
+                new RainbowError('[Ledger Import] - Error Pairing'),
+                { errorMessage: error.message }
+              );
             },
             next: async e => {
               if (e.type === 'add') {
                 const device = e.descriptor;
                 // prevent duplicate alerts
                 if (currentDeviceId === device.id) {
-                  return null;
+                  return;
                 }
                 // set the current device id to prevent duplicate alerts
                 currentDeviceId = device.id;
@@ -114,11 +122,9 @@ export function useLedgerImport({
                   const transport = await TransportBLE.open(device.id);
                   handlePairSuccess(device.id);
                 } catch (e) {
-                  logger.debug('error pairing ', {}, DebugContext.ledger);
                   handlePairError(e as Error);
+                  currentDeviceId === '';
                 }
-              } else {
-                Alert.alert('error connecting', JSON.stringify(e, null, 2));
               }
             },
           });
@@ -160,8 +166,7 @@ export function useLedgerImport({
 
     // cleanup
     return () => {
-      observer?.current?.unsubscribe();
-      listener?.current?.unsubscribe();
+      handleCleanUp();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

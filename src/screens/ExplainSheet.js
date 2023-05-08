@@ -21,6 +21,7 @@ import AppIconGoldDoge from '@/assets/appIconGoldDoge.png';
 import AppIconRainDoge from '@/assets/appIconRainDoge.png';
 import AppIconOptimism from '@/assets/appIconOptimism.png';
 import AppIconPooly from '@/assets/appIconPooly.png';
+import AppIconFiniliar from '@/assets/appIconFiniliar.png';
 import AppIconSmol from '@/assets/appIconSmol.png';
 import AppIconZora from '@/assets/appIconZora.png';
 import TheMergePng from '@/assets/theMerge.png';
@@ -32,12 +33,8 @@ import { ImgixImage } from '@/components/images';
 import { ETH_ADDRESS, ETH_SYMBOL } from '@/references';
 import styled from '@/styled-thing';
 import { fonts, fontWithWidth, padding, position } from '@/styles';
-import {
-  deviceUtils,
-  ethereumUtils,
-  gasUtils,
-  getTokenMetadata,
-} from '@/utils';
+import { ethereumUtils, gasUtils, getTokenMetadata } from '@/utils';
+import { buildRainbowLearnUrl } from '@/utils/buildRainbowUrl';
 import { cloudPlatformAccountName } from '@/utils/platform';
 import { useTheme } from '@/theme';
 import { isL2Network } from '@/handlers/web3';
@@ -101,6 +98,22 @@ const OptimismAppIcon = () => {
       <Box
         as={ImgixImage}
         source={AppIconOptimism}
+        size={APP_ICON_SIZE}
+        width={{ custom: APP_ICON_SIZE }}
+        height={{ custom: APP_ICON_SIZE }}
+        shadow="18px accent"
+      />
+    </AccentColorProvider>
+  );
+};
+
+const FiniliarAppIcon = () => {
+  const { colors } = useTheme();
+  return (
+    <AccentColorProvider color={colors.finiliarPink}>
+      <Box
+        as={ImgixImage}
+        source={AppIconFiniliar}
         size={APP_ICON_SIZE}
         width={{ custom: APP_ICON_SIZE }}
         height={{ custom: APP_ICON_SIZE }}
@@ -308,6 +321,10 @@ const POOLY_APP_ICON_EXPLAINER = lang.t('explain.icon_unlock.pooly_text');
 
 const POOLY_APP_ICON_TITLE = lang.t('explain.icon_unlock.pooly_title');
 
+const FINILIAR_APP_ICON_EXPLAINER = lang.t('explain.icon_unlock.finiliar_text');
+
+const FINILIAR_APP_ICON_TITLE = lang.t('explain.icon_unlock.finiliar_title');
+
 const navigateToAppIconSettings = async (navigate, goBack) => {
   goBack();
   navigate(Routes.SETTINGS_SHEET);
@@ -321,7 +338,12 @@ export const explainers = (params, colors) => ({
     title: i18n.t(i18n.l.rewards.op.airdrop_timing.title),
     text: i18n.t(i18n.l.rewards.op.airdrop_timing.text),
     extraHeight: IS_ANDROID ? -65 : 10,
-    readMoreLink: 'https://learn.rainbow.me/OP-rewards-with-Rainbow',
+    readMoreLink: buildRainbowLearnUrl({
+      url: 'https://learn.rainbow.me/OP-rewards-with-Rainbow',
+      query: {
+        campaign: 'explain',
+      },
+    }),
   },
   op_rewards_amount_distributed: {
     emoji: '💰',
@@ -357,6 +379,18 @@ export const explainers = (params, colors) => ({
       label: lang.t('explain.icon_unlock.button'),
       textColor: colors?.optimismRed,
       bgColor: colors?.optimismRed06,
+    },
+  },
+  finiliar_app_icon: {
+    logo: <FiniliarAppIcon />,
+    extraHeight: -90,
+    text: FINILIAR_APP_ICON_EXPLAINER,
+    title: FINILIAR_APP_ICON_TITLE,
+    button: {
+      onPress: navigateToAppIconSettings,
+      label: lang.t('explain.icon_unlock.button'),
+      textColor: colors?.finiliarPink,
+      bgColor: colors?.finiliarPink06,
     },
   },
   golddoge_app_icon: {
@@ -612,8 +646,12 @@ export const explainers = (params, colors) => ({
         size="large"
       />
     ),
-    readMoreLink:
-      'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+    readMoreLink: buildRainbowLearnUrl({
+      url: 'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+      query: {
+        campaign: 'explain',
+      },
+    }),
     text: OPTIMISM_EXPLAINER,
     title: lang.t('explain.optimism.title'),
   },
@@ -628,8 +666,12 @@ export const explainers = (params, colors) => ({
         size="large"
       />
     ),
-    readMoreLink:
-      'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+    readMoreLink: buildRainbowLearnUrl({
+      url: 'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+      query: {
+        campaign: 'explain',
+      },
+    }),
     text: ARBITRUM_EXPLAINER,
     title: lang.t('explain.arbitrum.title'),
   },
@@ -644,8 +686,12 @@ export const explainers = (params, colors) => ({
         size="large"
       />
     ),
-    readMoreLink:
-      'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+    readMoreLink: buildRainbowLearnUrl({
+      url: 'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+      query: {
+        campaign: 'explain',
+      },
+    }),
     text: POLYGON_EXPLAINER,
     title: lang.t('explain.polygon.title'),
   },
@@ -660,8 +706,12 @@ export const explainers = (params, colors) => ({
         size="large"
       />
     ),
-    readMoreLink:
-      'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+    readMoreLink: buildRainbowLearnUrl({
+      url: 'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+      query: {
+        campaign: 'explain',
+      },
+    }),
     text: BSC_EXPLAINER,
     title: lang.t('explain.bsc.title'),
   },
@@ -746,7 +796,13 @@ export const explainers = (params, colors) => ({
           color={colors?.appleBlue}
           onPress={() =>
             Linking.openURL(
-              'https://learn.rainbow.me/a-beginners-guide-to-liquidity-providing'
+              buildRainbowLearnUrl({
+                url:
+                  'https://learn.rainbow.me/a-beginners-guide-to-liquidity-providing',
+                query: {
+                  campaign: 'explain',
+                },
+              })
             )
           }
           size="large"
@@ -877,7 +933,13 @@ export const explainers = (params, colors) => ({
           color={colors?.appleBlue}
           onPress={() =>
             Linking.openURL(
-              'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks'
+              buildRainbowLearnUrl({
+                url:
+                  'https://learn.rainbow.me/a-beginners-guide-to-layer-2-networks',
+                query: {
+                  campaign: 'explain',
+                },
+              })
             )
           }
           size="large"
@@ -913,7 +975,13 @@ export const explainers = (params, colors) => ({
           color={colors?.appleBlue}
           onPress={() =>
             Linking.openURL(
-              'https://learn.rainbow.me/protecting-transactions-with-flashbots'
+              buildRainbowLearnUrl({
+                url:
+                  'https://learn.rainbow.me/protecting-transactions-with-flashbots',
+                query: {
+                  campaign: 'explain',
+                },
+              })
             )
           }
           size="large"
@@ -938,7 +1006,13 @@ export const explainers = (params, colors) => ({
           color={colors?.appleBlue}
           onPress={() =>
             Linking.openURL(
-              'https://learn.rainbow.me/swap-with-confidence-with-rainbow'
+              buildRainbowLearnUrl({
+                url:
+                  'https://learn.rainbow.me/swap-with-confidence-with-rainbow',
+                query: {
+                  campaign: 'explain',
+                },
+              })
             )
           }
           size="large"
@@ -977,31 +1051,6 @@ export const explainers = (params, colors) => ({
     ),
     text: lang.t('explain.slippage.text'),
     title: lang.t('explain.slippage.title'),
-  },
-  wyre_degradation: {
-    logo: <TheMergeIcon />,
-    extraHeight: deviceUtils.isSmallPhone ? 121 : 76,
-    text: lang.t('explain.wyre_degradation.text'),
-    title: lang.t('explain.wyre_degradation.title'),
-    stillCurious: (
-      <Text {...getBodyTextPropsWithColor(colors)}>
-        {lang.t('explain.wyre_degradation.still_curious.fragment1')}
-        <Text
-          color={colors?.appleBlue}
-          onPress={() =>
-            Linking.openURL(
-              'https://support.sendwyre.com/hc/en-us/articles/8611451495319-Ethereum-Merge-101'
-            )
-          }
-          size="large"
-          suppressHighlighting
-          weight="semibold"
-        >
-          {lang.t('explain.wyre_degradation.still_curious.fragment2')}
-        </Text>
-        {lang.t('explain.wyre_degradation.still_curious.fragment3')}
-      </Text>
-    ),
   },
   swap_refuel_add: {
     logo: (

@@ -79,6 +79,7 @@
       }
     },
     "back_up": {
+      "wrong_pin": "The PIN code you entered was incorrect and we can't make a backup. Please try again with the correct code. :)",
       "already_backed_up": {
         "backed_up": "Backed up :)",
         "backed_up_manually": "Backed up manually :)",
@@ -146,12 +147,14 @@
         "enter_backup_password": "Enter backup password :)",
         "enter_backup_password_description": "To restore your wallet, enter the backup password you created :)",
         "error_while_restoring": "Error while restoring backup :)",
+        "incorrect_pin_code": "Incorrect PIN code :)",
         "incorrect_password": "Incorrect Password :)",
         "restore_from_cloud_platform": "Restore from %{cloudPlatformName} :)"
       },
       "secret": {
         "anyone_who_has_these": "Anyone who has these words can access your entire wallet! :)",
         "biometrically_secured": "Your account has been secured with biometric data, like fingerprint or face identification. To see your recovery phrase, turn on biometrics in your phone’s settings. :)",
+        "no_seed_phrase": "We couldn't retrieve your seed phrase. Please ensure you've properly authenticated using biometric data, such as your fingerprint or face identification, or entered your PIN code correctly. :)",
         "copy_to_clipboard": "Copy to clipboard :)",
         "for_your_eyes_only": "For your eyes only :)",
         "private_key_title": "Private Key :)",
@@ -298,7 +301,7 @@
         "cards": {
           "get_started": {
             "title": "Get Started with Rainbow :)",
-            "description": "Welcome to Rainbow! We're so glad you're here. Weve created this guide to help with the basics of Rainbow and get you started on your new Web3 and Ethereum journey. :)"
+            "description": "Welcome to Rainbow! We're so glad you're here. We've created this guide to help with the basics of Rainbow and get you started on your new Web3 and Ethereum journey. :)"
           },
           "backups": {
             "title": "The Importance of Backups :)",
@@ -575,10 +578,6 @@
         "for_sale": "For sale",
         "last_sale": "Last sale price"
       },
-      "supported_countries": {
-        "supported_countries": "Supported Countries :)",
-        "us_except": "United States (except Texas and New York) :)"
-      },
       "swap": {
         "swap": "Swap",
         "bridge": "Bridge",
@@ -681,6 +680,8 @@
         "smol_text": "You found Treasure! Because you hold a Smolverse NFT, you've unlocked a Custom Icon! :)",
         "optimism_text": "To celebrate NFTs on Optimism, Rainbow and Optimism teamed up to drop a limited edition App Icon for the Optimistic Explorers like you! :)",
         "zora_text": "A special edition Rainbow Zorb icon that's made for magical pondering. :)",
+        "finiliar_text": "A special edition Rainbow Fini icon that keeps you up to date on the price of gas, rain or shine. :)",
+        "finiliar_title": "You've unlocked a\nRainbow Fini :)",
         "golddoge_text": "A limited edition golden Rainbow app icon in celebration of Kabosu's 17th birthday. :)",
         "raindoge_text": "A limited edition Rainbow app icon in celebration of Kabosu's 17th birthday. :)",
         "pooly_text": "A special edition Rainbow Pooly icon for supporters of freedom. :)",
@@ -1405,6 +1406,12 @@
     },
     "settings": {
       "backup": "Sauvegarder",
+      "google_account_used": "Google account used for backups :)",
+      "backup_switch_google_account": "Switch Google Account :)",
+      "backup_sign_out": "Sign out :)",
+      "backup_sign_in": "Sign in :)",
+      "backup_loading": "Loading... :)",
+      "backup_google_account": "Google Account :)",
       "currency": "Devise",
       "app_icon": "App Icon",
       "dev": "Dev :)",
@@ -1611,9 +1618,14 @@
       "pair_a_new_ledger": "Pair a new Ledger :)",
       "looking_for_devices": "Looking for devices :)",
       "make_sure_bluetooth_enabled": "Make sure you have Bluetooth enabled and your Ledger Nano X is unlocked. :)",
-      "device_connected": "Device connected",
+      "device_connected": "Device connected :)",
+      "confirm_on_device": "Confirm on device :)",
+      "transaction_rejected": "Transaction rejected :)",
+      "please_try_again": "Please try again if you'd like to continue :)",
+      "connected_and_ready": "Your ledger is connected, please review and confirm the transaction on your device. :)",
       "almost_done": "Almost done. Before you finish you need to enable blind signing on your Ledger device. :)",
       "enable_blind_signing": "Enable blind signing :)",
+      "blind_signing_enabled": "Blind signing enabled :)",
       "blind_signing_description": "Blind signing enables your device to approve signing a smart contract transactions. :)",
       "learn_more": "Learn More :)",
       "finish_importing": "Finish importing :)",
@@ -1639,6 +1651,10 @@
         "off_or_locked": "Make sure your device is unlocked :)",
         "no_eth_app": "Open the Eth App on your device :)",
         "unknown": "Unknown Error, close and reopen this sheet :)"
+      },
+      "pairing_error_alert": {
+        "title": "Error Connecting :)",
+        "body": "Please try again, if issues persist close the app and try again :)"
       }
     },
     "wallet": {
@@ -1701,7 +1717,10 @@
           "title": "We're sorry, you failed authentication",
           "message": "For your safety, you must authenticate before you can purchase crypto with Ratio."
         },
-        "support_email_subject": "I need help buying crypto with %{provider} :)",
+        "support_emails": {
+          "help": "I Need Help Buying Crypto With %{provider}",
+          "account_recovery": "Account Recovery for Crypto Purchasing"
+        },
         "sheet_empty_state": {
           "title": "Can't find your preferred provider? :)",
           "description": "Check back soon for more options :)"
@@ -1988,7 +2007,16 @@
       "unknown_dapp": "Unknown Dapp :)",
       "unknown_url": "Unknown URL :)",
       "approval_sheet_network": "Network :)",
-      "approval_sheet_networks": "%{length} Networks :)"
+      "approval_sheet_networks": "%{length} Networks :)",
+      "auth": {
+        "signin_title": "Sign In :)",
+        "signin_prompt": "Do you want to sign into %{name} with your wallet? :)",
+        "signin_with": "Sign in with :)",
+        "signin_button": "Continue :)",
+        "signin_notice": "By continuing, you’ll sign a free message proving you own this wallet :)",
+        "error_alert_title": "Authentication failed :)",
+        "error_alert_description": "Something went wrong. Please try again, or reach out to our support team. :)"
+      }
     },
     "warning": {
       "user_is_offline": "Hors connexion, veuillez vérifier votre connexion Internet",

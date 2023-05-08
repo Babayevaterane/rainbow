@@ -1,6 +1,6 @@
 import './languages';
 import * as Sentry from '@sentry/react-native';
-import React, { Component, createRef } from 'react';
+import React, { Component } from 'react';
 import {
   AppRegistry,
   AppState,
@@ -21,7 +21,7 @@ import { RecoilRoot } from 'recoil';
 import { runCampaignChecks } from './campaigns/campaignChecks';
 import PortalConsumer from './components/PortalConsumer';
 import ErrorBoundary from './components/error-boundary/ErrorBoundary';
-import { FedoraToast, OfflineToast } from './components/toasts';
+import { OfflineToast } from './components/toasts';
 import {
   designSystemPlaygroundEnabled,
   reactNativeDisableYellowBox,
@@ -63,7 +63,6 @@ import { MainThemeProvider } from './theme/ThemeContext';
 import { ethereumUtils } from './utils';
 import { branchListener } from './utils/branch';
 import { addressKey } from './utils/keychainConstants';
-import { CODE_PUSH_DEPLOYMENT_KEY, isCustomBuild } from '@/handlers/fedora';
 import { SharedValuesProvider } from '@/helpers/SharedValuesContext';
 import { InitialRouteContext } from '@/navigation/initialRoute';
 import Routes from '@/navigation/routesNames';
@@ -78,38 +77,14 @@ import {
 import { logger, RainbowError } from '@/logger';
 import * as ls from '@/storage';
 import { migrate } from '@/migrations';
-import { initListeners as initWalletConnectListeners } from '@/utils/walletConnect';
+import { initListeners as initWalletConnectListeners } from '@/walletConnect';
 import { saveFCMToken } from '@/notifications/tokens';
 import branch from 'react-native-branch';
-
-const FedoraToastRef = createRef();
 
 if (__DEV__) {
   reactNativeDisableYellowBox && LogBox.ignoreAllLogs();
   (showNetworkRequests || showNetworkResponses) &&
     monitorNetwork(showNetworkRequests, showNetworkResponses);
-} else {
-  // eslint-disable-next-line no-inner-declarations
-  async function checkForFedoraMode() {
-    try {
-      const config = await codePush.getCurrentPackage();
-      if (!config || config.deploymentKey === CODE_PUSH_DEPLOYMENT_KEY) {
-        codePush.sync({
-          deploymentKey: CODE_PUSH_DEPLOYMENT_KEY,
-          installMode: codePush.InstallMode.ON_NEXT_RESTART,
-        });
-      } else {
-        isCustomBuild.value = true;
-        setTimeout(() => FedoraToastRef?.current?.show(), 300);
-      }
-    } catch (e) {
-      logger.error(new RainbowError('error initiating codepush settings'), {
-        message: e.message,
-      });
-    }
-  }
-
-  checkForFedoraMode();
 }
 
 enableScreens();
@@ -118,6 +93,41 @@ const containerStyle = { flex: 1 };
 
 class OldApp extends Component {
   state = { appState: AppState.currentState, initialRoute: null };
+
+  /**
+   * There's a race condition in Branch's RN SDK. From a cold start, Branch
+   * doesn't always handle an initial URL, so we need to check for it here and
+   * then pass it to Branch to do its thing.
+   *
+   * @see https://github.com/BranchMetrics/react-native-branch-deep-linking-attribution/issues/673#issuecomment-1220974483
+   */
+  async setupDeeplinking() {
+    const initialUrl = await Linking.getInitialURL();
+
+    // main Branch handler
+    this.branchListener = await branchListener(url => {
+      logger.debug(
+        `Branch: listener called`,
+        {},
+        logger.DebugContext.deeplinks
+      );
+
+      try {
+        handleDeeplink(url, this.state.initialRoute);
+      } catch (e) {
+        logger.error(new RainbowError('Error opening deeplink'), {
+          message: e.message,
+          url,
+        });
+      }
+    });
+
+    // if we have an initial URL, pass it to Branch
+    if (initialUrl) {
+      logger.debug(`App: has initial URL, opening with Branch`, { initialUrl });
+      branch.openURL(initialUrl);
+    }
+  }
 
   async componentDidMount() {
     if (!__DEV__ && isTestFlight) {
@@ -130,17 +140,8 @@ class OldApp extends Component {
     AppState.addEventListener('change', this.handleAppStateChange);
     rainbowTokenList.on('update', this.handleTokenListUpdate);
     appEvents.on('transactionConfirmed', this.handleTransactionConfirmed);
-    this.branchListener = await branchListener(this.handleOpenLinkingURL);
-    // Walletconnect uses direct deeplinks
-    if (android) {
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        this.handleOpenLinkingURL(initialUrl);
-      }
-      Linking.addEventListener('url', ({ url }) => {
-        this.handleOpenLinkingURL(url);
-      });
-    }
+
+    await this.setupDeeplinking();
 
     PerformanceTracking.finishMeasuring(
       PerformanceMetrics.loadRootAppComponent
@@ -191,17 +192,6 @@ class OldApp extends Component {
   async handleTokenListUpdate() {
     store.dispatch(uniswapPairsInit());
   }
-
-  handleOpenLinkingURL = url => {
-    try {
-      handleDeeplink(url, this.state.initialRoute);
-    } catch (e) {
-      logger.error(new RainbowError('Error opening deeplink'), {
-        message: e.message,
-        url,
-      });
-    }
-  };
 
   handleAppStateChange = async nextAppState => {
     // Restore WC connectors when going from BG => FG
@@ -269,7 +259,6 @@ class OldApp extends Component {
             </InitialRouteContext.Provider>
           )}
           <OfflineToast />
-          <FedoraToast ref={FedoraToastRef} />
         </View>
         <NotificationsHandler walletReady={this.props.walletReady} />
       </Portal>
@@ -396,9 +385,7 @@ function Root() {
 }
 
 const RootWithSentry = Sentry.wrap(Root);
-const RootWithCodePush = codePush({
-  checkFrequency: codePush.CheckFrequency.MANUAL,
-})(RootWithSentry);
+const RootWithCodePush = codePush(RootWithSentry);
 
 const PlaygroundWithReduxStore = () => (
   <ReduxProvider store={store}>

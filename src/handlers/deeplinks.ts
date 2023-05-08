@@ -1,36 +1,38 @@
-import lang from 'i18n-js';
 import URL from 'url-parse';
-
 import { parseUri } from '@walletconnect/utils';
-import { initialChartExpandedStateSheetHeight } from '@/components/expanded-state/asset/ChartExpandedState';
+
 import store from '@/redux/store';
 import {
   walletConnectOnSessionRequest,
   walletConnectRemovePendingRedirect,
   walletConnectSetPendingRedirect,
 } from '@/redux/walletconnect';
-import { WrappedAlert as Alert } from '@/helpers/alert';
+import { scheduleActionOnAssetReceived } from '@/redux/data';
+import { emitAssetRequest, emitChartsRequest } from '@/redux/explorer';
 import { fetchReverseRecordWithRetry } from '@/utils/profileUtils';
 import { defaultConfig } from '@/config/experimental';
 import { PROFILES } from '@/config/experimentalHooks';
-import { setDeploymentKey } from '@/handlers/fedora';
-import { delay } from '@/helpers/utilities';
+import { delay } from '@/utils/delay';
 import {
   checkIsValidAddressOrDomain,
   isENSAddressFormat,
 } from '@/helpers/validators';
 import { Navigation } from '@/navigation';
-import { scheduleActionOnAssetReceived } from '@/redux/data';
-import { emitAssetRequest, emitChartsRequest } from '@/redux/explorer';
 import Routes from '@/navigation/routesNames';
-import { ethereumUtils } from '@/utils';
+import ethereumUtils from '@/utils/ethereumUtils';
 import { logger } from '@/logger';
 import {
   pair as pairWalletConnect,
   setHasPendingDeeplinkPendingRedirect,
-} from '@/utils/walletConnect';
+} from '@/walletConnect';
 import { analyticsV2 } from '@/analytics';
 import { FiatProviderName } from '@/entities/f2c';
+
+/*
+ * You can test these deeplinks with the following command:
+ *
+ *    `xcrun simctl openurl booted "https://link.rainbow.me/0x123"`
+ */
 
 export default async function handleDeeplink(
   url: string,
@@ -61,9 +63,7 @@ export default async function handleDeeplink(
 
   if (protocol === 'ethereum:') {
     /**
-     * Handling EIP deep links
-     *
-     * TODO apparently not working on sim, needs more research
+     * Handling send deep links
      */
     logger.info(`handleDeeplink: ethereum:// protocol`);
     ethereumUtils.parseEthereumUrl(url);
@@ -116,7 +116,6 @@ export default async function handleDeeplink(
               Navigation.handleAction(Routes.EXPANDED_ASSET_SHEET, {
                 asset,
                 fromDiscover: true,
-                longFormHeight: initialChartExpandedStateSheetHeight,
                 type: 'token',
               });
             };
@@ -134,40 +133,6 @@ export default async function handleDeeplink(
       }
 
       /**
-       * Top Hat stuff
-       */
-      case 'update-ios': {
-        logger.info(`handleDeeplink: update-ios`);
-
-        const code = pathname.split('/')[2];
-
-        if (android) {
-          Alert.alert(lang.t('deeplinks.tried_to_use_ios'));
-        } else {
-          setDeploymentKey(code);
-        }
-
-        break;
-      }
-
-      /**
-       * Top Hat stuff
-       */
-      case 'update-android': {
-        logger.info(`handleDeeplink: update-android`);
-
-        const code = pathname.split('/')[2];
-
-        if (ios) {
-          Alert.alert(lang.t('deeplinks.tried_to_use_android'));
-        } else {
-          setDeploymentKey(code);
-        }
-
-        break;
-      }
-
-      /**
        * Handle redirects after user completes an fiat onramp flow. This URL
        * should contain metadata about the transaction, if we have it.
        */
@@ -181,6 +146,8 @@ export default async function handleDeeplink(
             url,
             query,
           });
+
+          break;
         }
 
         /**
@@ -274,11 +241,40 @@ export default async function handleDeeplink(
   }
 }
 
+/**
+ * A reference to which WC URIs we've already handled.
+ *
+ * Branch (our deeplinking handler) runs its `subscribe()` handler every time
+ * the app is opened or re-focused from background. On Android, it caches the
+ * last deeplink (it shouldn't), and so tries to handle a deeplink we've
+ * already handled.
+ *
+ * In the case of WC, we don't want this to happen because we'll try to connect
+ * to a session that's either already active or expired. In WC v1, we handled
+ * this using `walletConnectUris` state in Redux. We now handle this here,
+ * before we even reach application code.
+ */
+const walletConnectURICache = new Set();
+
 function handleWalletConnect(uri: string) {
+  const cacheKey = JSON.stringify({ uri });
+
+  if (walletConnectURICache.has(cacheKey)) {
+    logger.debug(`handleWalletConnect: skipping duplicate event`, {});
+    return;
+  }
+
+  // make sure we don't handle this again
+  walletConnectURICache.add(cacheKey);
+
   const { query } = new URL(uri);
   const parsedUri = uri ? parseUri(uri) : null;
 
-  logger.debug(`handleWalletConnect`, { uri, query, parsedUri });
+  logger.debug(`handleWalletConnect: handling event`, {
+    uri,
+    query,
+    parsedUri,
+  });
 
   if (uri && query && parsedUri && parsedUri.version === 1) {
     store.dispatch(walletConnectSetPendingRedirect());

@@ -12,6 +12,8 @@ import { useManageCloudBackups, useWallets } from '@/hooks';
 import { useNavigation } from '@/navigation';
 import { abbreviations } from '@/utils';
 import { addressHashedEmoji } from '@/utils/profileUtils';
+import { GoogleAccountSection } from './GoogleAccountSection';
+import { IS_ANDROID } from '@/env';
 
 const BackupSection = () => {
   const { navigate } = useNavigation();
@@ -43,7 +45,11 @@ const BackupSection = () => {
 
   const backups = wallets
     ? Object.keys(wallets)
-        .filter(key => wallets[key].type !== WalletTypes.readOnly)
+        .filter(
+          key =>
+            wallets[key].type !== WalletTypes.readOnly &&
+            wallets[key].type !== WalletTypes.bluetooth
+        )
         .map(key => {
           const wallet = wallets[key];
           const visibleAccounts = wallet.addresses.filter(
@@ -74,6 +80,7 @@ const BackupSection = () => {
 
   return (
     <MenuContainer>
+      {IS_ANDROID && <GoogleAccountSection />}
       <Menu>
         {backups.map(
           ({

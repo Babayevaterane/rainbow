@@ -34,7 +34,6 @@ import WalletConnectRedirectSheet from '../screens/WalletConnectRedirectSheet';
 import WalletDiagnosticsSheet from '../screens/WalletDiagnosticsSheet';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import WithdrawModal from '../screens/WithdrawModal';
-import WyreWebview from '../screens/WyreWebview';
 import RegisterENSNavigator from './RegisterENSNavigator';
 import { SwipeNavigator } from './SwipeNavigator';
 import { createBottomSheetNavigator } from './bottom-sheet';
@@ -45,7 +44,6 @@ import {
   restoreSheetConfig,
   stackNavigationConfig,
   learnWebViewScreenConfig,
-  wyreWebviewOptions,
 } from './config';
 import {
   addWalletNavigatorPreset,
@@ -76,26 +74,12 @@ import { HardwareWalletTxNavigator } from './HardwareWalletTxNavigator';
 import { RewardsSheet } from '@/screens/rewards/RewardsSheet';
 import { SettingsSheet } from '@/screens/SettingsSheet';
 import { CUSTOM_MARGIN_TOP_ANDROID } from '@/screens/SettingsSheet/constants';
+import { Portal } from '@/screens/Portal';
 
 const Stack = createStackNavigator();
 const OuterStack = createStackNavigator();
 const AuthStack = createStackNavigator();
 const BSStack = createBottomSheetNavigator();
-
-function AddCashFlowNavigator() {
-  const { colors } = useTheme();
-  const themedWyreWebviewOptions = useMemo(() => wyreWebviewOptions(colors), [
-    colors,
-  ]);
-  return (
-    <Stack.Navigator
-      initialRouteName={Routes.WYRE_WEBVIEW}
-      screenOptions={themedWyreWebviewOptions}
-    >
-      <Stack.Screen component={WyreWebview} name={Routes.WYRE_WEBVIEW} />
-    </Stack.Navigator>
-  );
-}
 
 function MainNavigator() {
   const initialRoute = useContext(InitialRouteContext);
@@ -119,6 +103,11 @@ function MainNavigator() {
       <Stack.Screen
         component={ConnectedDappsSheet}
         name={Routes.CONNECTED_DAPPS}
+        options={expandedPreset}
+      />
+      <Stack.Screen
+        component={Portal}
+        name={Routes.PORTAL}
         options={expandedPreset}
       />
       <Stack.Screen
@@ -190,10 +179,6 @@ function MainNavigator() {
         component={WelcomeScreen}
         name={Routes.WELCOME_SCREEN}
         options={{ animationEnabled: false, gestureEnabled: false }}
-      />
-      <Stack.Screen
-        component={AddCashFlowNavigator}
-        name={Routes.WYRE_WEBVIEW_NAVIGATOR}
       />
     </Stack.Navigator>
   );

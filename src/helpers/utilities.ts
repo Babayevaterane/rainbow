@@ -411,6 +411,30 @@ export const convertAmountToNativeDisplay = (
 };
 
 /**
+ * @desc convert from raw amount to rounded decimal
+ */
+export const convertRawAmountToRoundedDecimal = (
+  value: BigNumberish,
+  decimals = 18,
+  roundTo = 0
+): number => {
+  if (roundTo) {
+    const roundingFactor = 10 ** roundTo;
+    return (
+      Math.round(
+        new BigNumber(value)
+          .dividedBy(new BigNumber(10).pow(decimals))
+          .toNumber() * roundingFactor
+      ) / roundingFactor
+    );
+  } else {
+    return new BigNumber(value)
+      .dividedBy(new BigNumber(10).pow(decimals))
+      .toNumber();
+  }
+};
+
+/**
  * @desc convert from raw amount to decimal format
  */
 export const convertRawAmountToDecimalFormat = (
@@ -424,6 +448,8 @@ export const fromWei = (number: BigNumberish): string =>
 
 /**
  * @desc Promise that will resolve after the ms interval
+ *
+ * @deprecated use `@/utils/delay`
  */
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));

@@ -13,6 +13,38 @@ and this project adheres to [Semantic Versioning](http://semver.org/)
 
 ### Removed
 
+## [1.8.17] (https://github.com/rainbow-me/rainbow/releases/tag/v1.8.17)
+
+### Added
+
+- Android Backup Improvements
+- iPhone 14 Safe area fixes on sheets
+
+## [1.8.16] (https://github.com/rainbow-me/rainbow/releases/tag/v1.8.16)
+
+### Added
+
+- Ledger support
+- Finiliar NFT app icon
+- Ratio fees fix
+
+## [1.8.15] (https://github.com/rainbow-me/rainbow/releases/tag/v1.8.15)
+
+### Added
+
+- NFT Refactor
+- WC improvements
+- Google Account Switching for Backups
+
+## [1.8.14] (https://github.com/rainbow-me/rainbow/releases/tag/v1.8.14)
+
+### Added
+
+- Ratio to our f2c flow
+- Fixed colors on send sheet
+- Wallet connect V2
+- Performance improvements
+
 ## [1.8.13] (https://github.com/rainbow-me/rainbow/releases/tag/v1.8.13)
 
 ### Added
